@@ -6,7 +6,7 @@ using namespace std;
 
 const double PI = 3.14159265358979323846;
 const double GM = 398600.4418; // Constante de gravitation de la terre
-const double min_elevation= 15.0;  // Minimum elevation angle in degrees
+const double min_elevation= 15.0 * PI /180.0;  // Minimum elevation angle in degrees
 const double RT = 6371.0; // Rayon de la Terre
 
 // degrees => radians
@@ -63,26 +63,37 @@ double calculateElevation(double obs_lat, double obs_lon, double obs_alt, double
     double range = sqrt(range_x * range_x + range_y * range_y + range_z * range_z);
 
     double elevation_rad = asin(range_z / range);
-    return rad2deg(elevation_rad);
+    return elevation_rad;
 }
 
 time_t findNextPass(double inclination, double eccentricity, double meanMotion, double raaa, double argumentPerigee, double meanAnomaly, double epochTime, double obs_lat, double obs_lon, double obs_alt, double min_elevation) {
-    double currentTime = epochTime;
-    double step = 600.0;  // Time step in seconds
+    double currentTime = epochTime; // Get current time as seconds since epoch
+    double step = 60.0;  // Initial time step in seconds
+    double deltaT; 
 
-    while (true) {
-        double x, y, z;
-        getPosition(inclination, eccentricity, meanMotion, raaa, argumentPerigee, meanAnomaly, epochTime, currentTime, x, y, z);
-        double elevation = calculateElevation(obs_lat, obs_lon, obs_alt, x, y, z);
-
-        if (elevation >= min_elevation) {
-            break;
-        }
-
-        currentTime += step;
+    double n = meanMotion * 2 * PI / 86400.0; // Vitesse angulaire en rad/s
+    double elevation2;
+    double x, y, z;
+    double sens;
+    
+    getPosition(inclination, eccentricity, meanMotion, raaa, argumentPerigee, meanAnomaly, epochTime, currentTime, x, y, z);
+    double elevation = calculateElevation(obs_lat, obs_lon, obs_alt, x, y, z);
+     
+    getPosition(inclination, eccentricity, meanMotion, raaa, argumentPerigee, meanAnomaly, epochTime, currentTime + step, x, y, z);
+    double elevation_1 = calculateElevation(obs_lat, obs_lon, obs_alt, x, y, z);
+    
+    if (elevation_1 > elevation){
+         sens = 1; //sens de la montre
+    }else{
+         sens = -1;
     }
-
-    return static_cast<time_t>(currentTime);
+   
+   if(elevation< min_elevation){
+    deltaT = (-elevation + min_elevation )/n;
+   }else{
+    deltaT = 0;
+   }
+   return deltaT/3600; 
 }
 
 int main()
@@ -122,13 +133,13 @@ int main()
     double x, y, z; 
     time_t nextPassTime = findNextPass(inclination, eccentricity, meanMotion, raan, argumentPerigee, meanAnomaly, epochTime, obs_lat, obs_lon, obs_alt, min_elevation);
 
-    // Convert the next pass time to a human-readable format
-    char timeBuffer[26];
-    ctime_s(timeBuffer, sizeof timeBuffer, &nextPassTime);
-    string nextPassTimeString = string(timeBuffer);
+    //Convert the next pass time to a human-readable format
+    //char timeBuffer[26];
+    //ctime_s(timeBuffer, sizeof timeBuffer, &nextPassTime);
+    //string nextPassTimeString = string(timeBuffer);
 
     // Print the time of the next pass
-    cout << "The next pass of satellite " << name << " over the observer's location will be at: " << nextPassTimeString << endl;
+    cout << "The next pass of satellite " << name << " over the observer's location will be at: " << nextPassTime << endl;
 
     return 0;
 }
